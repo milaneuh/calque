@@ -55,7 +55,6 @@ defmodule MyApp.FancyRenderTest do
   use ExUnit.Case, async: true
 
   test "renders a friendly greeting" do
-    got =
       %{
         hello: "world",
         nums: [1, 2, 3, 4]
@@ -125,6 +124,6 @@ title:  My first snapshot ! :D
 
 ## 🫶 Inspirations and acknowledgments
 
-[![Birdie (Gleam)](https://github.com/giacomocavalieri/birdie)
-[![Insta (Rust)](https://github.com/mitsuhiko/insta)
-[![Giacomo Cavalieri’s talk “Supercharge your tests with Snapshot Testing”](https://www.youtube.com/watch?v=DpakV96jeRk)
+![Birdie (Gleam)](https://github.com/giacomocavalieri/birdie)
+![Insta (Rust)](https://github.com/mitsuhiko/insta)
+![Giacomo Cavalieri’s talk “Supercharge your tests with Snapshot Testing”](https://www.youtube.com/watch?v=DpakV96jeRk)
