@@ -1,21 +1,8 @@
 defmodule Calque.Diff do
-  @moduledoc """
-  Robust line-by-line diff that returns plain maps with kind metadata (no ANSI).
-  Coloring is handled by the UI layer (Calque.pretty_diff_line/2).
-  """
-
   @type diff_line_kind :: :old | :new | :shared
   @type diff_line :: %{number: pos_integer(), line: String.t(), kind: diff_line_kind()}
 
-  @doc """
-  Compare two multiline strings line by line and return a flat list of lines.
-
-  For each index:
-    * if both sides present and equal    -> one `:shared` line
-    * if only old present                -> one `:old` line
-    * if only new present                -> one `:new` line
-    * if both present but different      -> two lines: first `:old`, then `:new`
-  """
+  @doc false
   @spec line_by_line(String.t(), String.t()) :: [diff_line()]
   def line_by_line(old, new) when is_binary(old) and is_binary(new) do
     # Degenerate case: both empty -> one shared empty line
@@ -65,6 +52,6 @@ defmodule Calque.Diff do
     end
   end
 
-  # permissive fallback
+  @doc false
   def line_by_line(_, _), do: []
 end
