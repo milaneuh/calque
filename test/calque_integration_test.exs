@@ -70,7 +70,7 @@ defmodule CalqueIntegrationTest do
     accepted_raw =
       IO.iodata_to_binary([
         "---\n",
-        "version: 1.0.0\n",
+        "version: 1.0.1\n",
         "title: ",
         title,
         "\n",
@@ -121,7 +121,7 @@ defmodule CalqueIntegrationTest do
     # create delta for T1 & T2 to have *.snap present
     File.write!(snap_path(title1), """
     ---
-    version: 1.0.0
+    version: 1.0.1
     title: #{title1}
     ---
     A\nC
@@ -129,7 +129,7 @@ defmodule CalqueIntegrationTest do
 
     File.write!(snap_path(title2), """
     ---
-    version: 1.0.0
+    version: 1.0.1
     title: #{title2}
     ---
     B\nD

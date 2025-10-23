@@ -35,7 +35,7 @@ Add **Calque** to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:calque, "~> 1.0.0", only: :test}
+    {:calque, "~> 1.0.1", only: :test}
   ]
 end
 ```

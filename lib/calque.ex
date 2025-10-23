@@ -30,7 +30,7 @@ defmodule Calque do
 
   alias Calque.{Snapshot, Diff, Error}
 
-  @version "1.0.0"
+  @version "1.0.1"
   @snapshot_folder "calque_snapshots"
   @snapshot_test_failed_message "📝 Calque snapshot test failed"
   @hint_review_message "Please review this snapshot using `mix calque review`"
@@ -266,9 +266,7 @@ defmodule Calque do
 
     with {:ok, {open_line, rest}} <- split_once(raw),
          true <- open_line == "---",
-         {:ok, {version_line, rest}} <- split_once(rest),
-         "version: " <> version <- version_line,
-         true <- version == @version,
+         {:ok, {_version_line, rest}} <- split_once(rest),
          {:ok, {title_line, rest}} <- split_once(rest),
          "title: " <> escaped_title <- title_line,
          {:ok, {close_line, content}} <- split_once(rest),
