@@ -1,0 +1,5 @@
+---
+version: 1.0.0
+title: Checking my favorite number wrap into a tuple
+---
+{:ok, 13}
