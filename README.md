@@ -95,6 +95,6 @@ Calque draws inspiration from the vibrant snapshot testing ecosystem:
 
 - 🐦‍⬛ [Birdie](https://github.com/giacomocavalieri/birdie) (Gleam)
 - 🦀 [insta](https://insta.rs) (Rust)
-- 🎙️ [Giacomo Cavalieri — *Intentional Snapshot Testing*](https://www.youtube.com/watch?v=DpakV96jeRk)
+- 🎙️ [Giacomo Cavalieri — *Supercharge your Tests with Snapshot Testing *](https://www.youtube.com/watch?v=DpakV96jeRk)
 
 If you enjoy Calque, give those projects (and talk!) a look for even more snapshot wisdom.
