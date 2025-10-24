@@ -30,6 +30,8 @@ defmodule Calque do
 
   alias Calque.{Snapshot, Diff, Error}
 
+  @type snapshot :: Snapshot.t()
+
   @version "1.0.1"
   @snapshot_folder "calque_snapshots"
   @snapshot_test_failed_message "📝 Calque snapshot test failed"
@@ -142,7 +144,7 @@ defmodule Calque do
   # -------------------------
 
   @doc false
-  @spec read_accepted(Path.t()) :: {:ok, %Snapshot{} | nil} | {:error, Error.t()}
+  @spec read_accepted(Path.t()) :: {:ok, snapshot | nil} | {:error, Error.t()}
   defp read_accepted(path) do
     case File.read(path) do
       {:ok, content} ->
@@ -170,7 +172,7 @@ defmodule Calque do
   end
 
   @doc false
-  @spec save(%Snapshot{}, Path.t()) :: :ok | {:error, Error.t()}
+  @spec save(snapshot, Path.t()) :: :ok | {:error, Error.t()}
   defp save(%Snapshot{status: :new} = snapshot, destination) do
     # We store new snapshots as *.snap. Accepted snapshots are *.accepted.snap.
     cond do
@@ -221,7 +223,7 @@ defmodule Calque do
   end
 
   @doc false
-  @spec new_destination(%Snapshot{}, Path.t()) :: Path.t()
+  @spec new_destination(snapshot, Path.t()) :: Path.t()
   defp new_destination(%Snapshot{} = snapshot, folder),
     do: Path.join(folder, safe_basename(snapshot.title) <> ".snap")
 
@@ -244,7 +246,7 @@ defmodule Calque do
   # -------------------------
 
   @doc false
-  @spec serialise(%Snapshot{}) :: binary()
+  @spec serialise(snapshot) :: binary()
   defp serialise(%Snapshot{title: title, content: content}) do
     escaped_title = String.replace(title, "\n", "\\n")
 
@@ -260,7 +262,7 @@ defmodule Calque do
 
   @doc false
   @spec deserialise(binary(), :new | :accepted) ::
-          {:ok, %Snapshot{}} | {:error, :invalid_snapshot}
+          {:ok, snapshot} | {:error, :invalid_snapshot}
   defp deserialise(raw, status) when status in [:new, :accepted] do
     raw = String.replace(raw, "\r\n", "\n")
 
@@ -279,7 +281,7 @@ defmodule Calque do
   end
 
   @doc false
-  @spec build_snapshot(binary(), binary(), :new | :accepted) :: %Snapshot{}
+  @spec build_snapshot(binary(), binary(), :new | :accepted) :: snapshot
   defp build_snapshot(title, content, :new), do: Snapshot.new(title, content)
   defp build_snapshot(title, content, :accepted), do: Snapshot.accepted(title, content)
 
@@ -298,7 +300,7 @@ defmodule Calque do
   # -------------------------
 
   @doc false
-  @spec snapshot_body(%Snapshot{}) :: binary()
+  @spec snapshot_body(snapshot) :: binary()
   defp snapshot_body(%Snapshot{content: content}), do: snapshot_body(content)
 
   @doc false
@@ -310,7 +312,7 @@ defmodule Calque do
   end
 
   @doc false
-  @spec to_diff_lines(%Snapshot{}, %Snapshot{}) ::
+  @spec to_diff_lines(snapshot, snapshot) ::
           [%{number: non_neg_integer(), line: binary(), kind: :shared | :new | :old}]
   defp to_diff_lines(%Snapshot{} = accepted, %Snapshot{} = new) do
     accepted_body = snapshot_body(accepted)
@@ -327,7 +329,7 @@ defmodule Calque do
   defp hint_text(message), do: IO.ANSI.yellow() <> message <> IO.ANSI.reset()
 
   @doc false
-  @spec new_snapshot_box(%Snapshot{}, list(map())) :: binary()
+  @spec new_snapshot_box(snapshot, list(map())) :: binary()
   defp new_snapshot_box(%Snapshot{} = snapshot, additional_info_lines) do
     body = snapshot_body(snapshot)
 
@@ -351,7 +353,7 @@ defmodule Calque do
   end
 
   @doc false
-  @spec diff_snapshot_box(%Snapshot{}, %Snapshot{}, list(map())) :: binary()
+  @spec diff_snapshot_box(snapshot, snapshot, list(map())) :: binary()
   defp diff_snapshot_box(%Snapshot{} = accepted, %Snapshot{} = new, additional_info_lines) do
     info_lines =
       [
@@ -401,12 +403,9 @@ defmodule Calque do
     title_line_right = String.duplicate("─", max(terminal_width - 5 - title_length, 0))
     title_line = "── " <> title <> " ─" <> title_line_right
 
-    info_lines =
-      Enum.map(info_lines, &pretty_info_line(&1, terminal_width))
+    info_lines = Enum.map(info_lines, &pretty_info_line(&1, terminal_width))
 
-    content =
-      Enum.map(content_lines, &pretty_diff_line(&1, padding))
-      |> Enum.join("\n")
+    content = Enum.map_join(content_lines, "\n", &pretty_diff_line(&1, padding))
 
     left_padding_line = String.duplicate("-", padding)
     right_padding_line = String.duplicate("-", terminal_width - padding - 1)
@@ -545,20 +544,52 @@ defmodule Calque do
   @doc false
   @spec main([String.t()]) :: :ok
   def main(args \\ []) do
-    case args do
-      [] -> review_snapshots()
-      ["review"] -> review_snapshots()
-      ["r"] -> review_snapshots()
-      ["accept-all"] -> accept_all_snapshots()
-      ["aa"] -> accept_all_snapshots()
-      ["reject-all"] -> reject_all_snapshots()
-      ["ra"] -> reject_all_snapshots()
-      ["help"] -> show_help()
-      ["h"] -> show_help()
-      [subcommand] -> unexpected_subcommand(subcommand)
-      subcommands -> more_than_one_command(subcommands)
+    args
+    |> normalize_command()
+    |> execute_command()
+  end
+
+  @type cli_command :: :review | :accept_all | :reject_all | :help
+
+  @command_aliases %{
+    "review" => :review,
+    "r" => :review,
+    "accept-all" => :accept_all,
+    "aa" => :accept_all,
+    "reject-all" => :reject_all,
+    "ra" => :reject_all,
+    "help" => :help,
+    "h" => :help
+  }
+
+  @spec normalize_command([String.t()]) ::
+          {:ok, cli_command()} |
+            {:error, {:unknown_command, String.t()} | {:too_many_commands, [String.t()]}}
+  defp normalize_command([]), do: {:ok, :review}
+
+  defp normalize_command([command]) do
+
+    normalized = Map.get(@command_aliases, String.downcase(command))
+
+    case normalized do 
+      nil -> {:error, {:unknown_command, command}}
+      normalized_alias -> {:ok, normalized}
     end
   end
+
+  defp normalize_command(commands), do: {:error, {:too_many_commands, commands}}
+
+  @spec execute_command({:ok, cli_command()} | {:error, term()}) :: :ok
+  defp execute_command({:ok, :review}), do: review_snapshots()
+  defp execute_command({:ok, :accept_all}), do: accept_all_snapshots()
+  defp execute_command({:ok, :reject_all}), do: reject_all_snapshots()
+  defp execute_command({:ok, :help}), do: show_help()
+
+  defp execute_command({:error, {:unknown_command, command}}),
+    do: unexpected_subcommand(command)
+
+  defp execute_command({:error, {:too_many_commands, commands}}),
+    do: more_than_one_command(commands)
 
   # -------------------------
   # CLI Internal logic
@@ -590,56 +621,81 @@ defmodule Calque do
   defp do_review([snapshot_path | rest], current, total) do
     IO.write("\e[H\e[2J")
 
-    case read_snapshot(snapshot_path) do
-      {:ok, new_snapshot} ->
-        accepted_path = String.replace_suffix(snapshot_path, ".snap", ".accepted.snap")
+    snapshot_path
+    |> read_snapshot()
+    |> handle_review(snapshot_path, rest, current, total)
+  end
 
-        box =
-          case read_accepted_for(new_snapshot, accepted_path) do
-            {:ok, %Snapshot{} = accepted} ->
-              diff_snapshot_box(accepted, new_snapshot, [])
+  @spec handle_review(
+          {:ok, snapshot} | {:error, Error.t()},
+          Path.t(),
+          [Path.t()],
+          pos_integer(),
+          pos_integer()
+        ) :: :ok
+  defp handle_review({:ok, new_snapshot}, snapshot_path, rest, current, total) do
+    snapshot_path
+    |> accepted_path_for()
+    |> review_box(new_snapshot)
+    |> display_review(current, total)
 
-            {:ok, nil} ->
-              new_snapshot_box(new_snapshot, [])
+    case resolve_choice(snapshot_path) do
+      :aborted -> :ok
+      :continue -> do_review(rest, current + 1, total)
+    end
+  end
 
-            {:error, tagged_reason} ->
-              IO.puts(Error.explain(tagged_reason))
-              new_snapshot_box(new_snapshot, [])
-          end
+  defp handle_review({:error, tagged_reason}, _snapshot_path, rest, current, total) do
+    IO.puts(Error.explain(tagged_reason))
+    do_review(rest, current + 1, total)
+  end
 
-        IO.puts(IO.ANSI.cyan() <> "Reviewing snapshot #{current} of #{total}" <> IO.ANSI.reset())
-        IO.puts("\n#{box}\n")
+  @spec accepted_path_for(Path.t()) :: Path.t()
+  defp accepted_path_for(path), do: String.replace_suffix(path, ".snap", ".accepted.snap")
 
-        choice_result =
-          case ask_choice() do
-            :accept ->
-              _ = accept_snapshot(snapshot_path)
-              :ok
+  @spec review_box(Path.t(), snapshot) :: binary()
+  defp review_box(accepted_path, new_snapshot) do
+    case read_accepted_for(new_snapshot, accepted_path) do
+      {:ok, %Snapshot{} = accepted} ->
+        diff_snapshot_box(accepted, new_snapshot, [])
 
-            :reject ->
-              _ = reject_snapshot(snapshot_path)
-              :ok
-
-            :skip ->
-              :ok
-
-            :aborted ->
-              IO.puts(IO.ANSI.cyan() <> "Review aborted by the user." <> IO.ANSI.reset())
-              :aborted
-
-            {:error, {:cannot_read_user_input, reason}} ->
-              IO.puts(Error.format_error({:cannot_read_user_input, reason}))
-              :ok
-          end
-
-        case choice_result do
-          :aborted -> :ok
-          _ -> do_review(rest, current + 1, total)
-        end
+      {:ok, nil} ->
+        new_snapshot_box(new_snapshot, [])
 
       {:error, tagged_reason} ->
         IO.puts(Error.explain(tagged_reason))
-        do_review(rest, current + 1, total)
+        new_snapshot_box(new_snapshot, [])
+    end
+  end
+
+  @spec display_review(binary(), pos_integer(), pos_integer()) :: :ok
+  defp display_review(box, current, total) do
+    IO.puts(IO.ANSI.cyan() <> "Reviewing snapshot #{current} of #{total}" <> IO.ANSI.reset())
+    IO.puts("\n#{box}\n")
+    :ok
+  end
+
+  @spec resolve_choice(Path.t()) :: :continue | :aborted
+  defp resolve_choice(snapshot_path) do
+    case ask_choice() do
+      :accept ->
+        _ = accept_snapshot(snapshot_path)
+        :continue
+
+      :reject ->
+        _ = reject_snapshot(snapshot_path)
+        :continue
+
+      :skip ->
+        :continue
+
+      :aborted ->
+        IO.puts(IO.ANSI.cyan() <> "Review aborted by the user." <> IO.ANSI.reset())
+        :aborted
+
+      {:error, {:cannot_read_user_input, reason}} ->
+        IO.puts(Error.format_error({:cannot_read_user_input, reason}))
+        :continue
     end
   end
 
@@ -684,24 +740,27 @@ defmodule Calque do
   @doc false
   @spec list_new_snapshots(Path.t()) :: {:ok, [Path.t()]} | {:error, Error.t()}
   defp list_new_snapshots(folder) do
-    with {:ok, entries} <- File.ls(folder) do
-      {:ok,
-       entries
-       |> Enum.filter(fn name ->
-         String.ends_with?(name, ".snap") and
-           not String.ends_with?(name, ".accepted.snap") and
-           not String.ends_with?(name, ".rejected.snap")
-       end)
-       |> Enum.sort()
-       |> Enum.map(&Path.join(folder, &1))}
-    else
+    case File.ls(folder) do
+      {:ok, entries} ->
+        snapshots =
+          entries
+          |> Enum.filter(fn name ->
+            String.ends_with?(name, ".snap") and
+              not String.ends_with?(name, ".accepted.snap") and
+              not String.ends_with?(name, ".rejected.snap")
+          end)
+          |> Enum.sort()
+          |> Enum.map(&Path.join(folder, &1))
+
+        {:ok, snapshots}
+
       {:error, reason} ->
         {:error, {:cannot_read_snapshots, reason, folder}}
     end
   end
 
   @doc false
-  @spec read_snapshot(Path.t()) :: {:ok, %Snapshot{}} | {:error, Error.t()}
+  @spec read_snapshot(Path.t()) :: {:ok, snapshot} | {:error, Error.t()}
   defp read_snapshot(path) do
     case File.read(path) do
       {:ok, raw} ->
@@ -719,8 +778,8 @@ defmodule Calque do
   end
 
   @doc false
-  @spec read_accepted_for(%Snapshot{}, Path.t()) ::
-          {:ok, %Snapshot{} | nil} | {:error, Error.t()}
+  @spec read_accepted_for(snapshot, Path.t()) ::
+          {:ok, snapshot | nil} | {:error, Error.t()}
   defp read_accepted_for(_snapshot, path) do
     case File.read(path) do
       {:ok, raw} ->
@@ -746,6 +805,12 @@ defmodule Calque do
           | :aborted
           | {:error, Error.t()}
   defp ask_choice do
+    print_choice_menu()
+    prompt_choice()
+  end
+
+  @spec print_choice_menu() :: :ok
+  defp print_choice_menu do
     IO.puts(
       IO.ANSI.green() <>
         "  a" <>
@@ -762,23 +827,41 @@ defmodule Calque do
         IO.ANSI.cyan() <> "  q" <> IO.ANSI.reset() <> " quit"
     )
 
+    :ok
+  end
+
+  @spec prompt_choice() :: :accept | :reject | :skip | :aborted | {:error, Error.t()}
+  defp prompt_choice do
     case IO.gets("> ") do
       :eof ->
         {:error, {:cannot_read_user_input, :eof}}
 
       data when is_binary(data) ->
-        case String.trim(data) do
-          "a" -> :accept
-          "r" -> :reject
-          "s" -> :skip
-          "q" -> :aborted
-          "" -> ask_choice()
-          _ -> ask_choice()
-        end
+        data
+        |> String.trim()
+        |> parse_choice()
 
       other ->
         {:error, {:cannot_read_user_input, other}}
     end
+  end
+
+  @spec parse_choice(String.t()) :: :accept | :reject | :skip | :aborted | {:error, Error.t()}
+  defp parse_choice(choice) do
+    case choice do
+      "a" -> :accept
+      "r" -> :reject
+      "s" -> :skip
+      "q" -> :aborted
+      "" -> retry_choice()
+      _ -> retry_choice()
+    end
+  end
+
+  @spec retry_choice() :: :accept | :reject | :skip | :aborted | {:error, Error.t()}
+  defp retry_choice do
+    print_choice_menu()
+    prompt_choice()
   end
 
   @doc false
