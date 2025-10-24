@@ -1,36 +1,27 @@
-⚠️ This library is a work in progress, it is not yet available on hex ⚠️
+# 🎨 Calque — Snapshot testing for Elixir
 
-# 📝 Calque — Snapshot testing for Elixir
-
-> **/kalk/** — “Calque” is a French word meaning *tracing paper* or *copy*.  
+[![Hex.pm Package](https://img.shields.io/hexpm/v/calque.svg)](https://hex.pm/packages/calque)
+[![HexDocs](https://img.shields.io/badge/HexDocs-blue.svg)](https://hexdocs.pm/calque/1.0.1/Calque.html)
+> **/kalk/** — “Calque” is a French word meaning *tracing paper* or *copy*.
 > Like its name, this library lets you trace your program’s output and compare it over time.
 
-**Calque** lets you assert on complex outputs without hand-crafting expected values.  
-On first run, Calque stores a **snapshot**; subsequent runs compare against it and show a reviewable diff.
+Calque makes string-heavy assertions delightful. Pipe your rendered value into `Calque.check/2`,
+review the diff the first time it runs, and commit the accepted snapshot so future test runs can
+keep you honest.
 
-Think of it as:
+## ✨ Why snapshots?
 
-> You focus on producing the result. Calque stores it, compares it later, and helps you review changes.
+- ✅ Capture large or noisy output without hand-writing long expectations.
+- ✅ Review changes visually with rich diffs instead of squinting at a single assertion.
+- ✅ Lock in formatting and serialization decisions across releases.
 
-Inspired by **Insta (Rust)** and **Birdie (Gleam)** — simple, expressive, and pleasant to use.
+On the very first run Calque will save a snapshot under `calque_snapshots/` and fail with the
+message `📝 Calque snapshot test failed`. Accept the snapshot and every subsequent run compares the
+current output against that accepted baseline.
 
----
+## 🚀 Getting started
 
-## ✨ Features
-
-- **Zero-friction assertions** — write `snapshot!(value)` and move on.  
-- **Readable diffs** — pretty boxes highlighting `+` additions and `-` deletions.  
-- **CLI review loop** — accept (`a`), reject (`r`), skip (`s`) or quit (`q`) interactively.  
-- **Deterministic output** — optional normalizers/formatters for stable snapshots.  
-- **Project-local storage** — snapshots live under `calque_snapshots/` by default.  
-- **ExUnit friendly** — drop-in helpers for clean test integration.  
-- **CI-ready** — fail the build on mismatches, review locally, then re-run.
-
----
-
-## 🔧 Installation
-
-Add **Calque** to your `mix.exs`:
+Add Calque as a test dependency and fetch it:
 
 ```elixir
 def deps do
@@ -40,90 +31,70 @@ def deps do
 end
 ```
 
-Then:
-
 ```bash
 mix deps.get
 ```
 
----
+## 🧪 Writing snapshot tests
 
-## 🚀 Quick start
+Any value you can turn into a string can become a snapshot. `inspect/2` works great for Elixir data
+structures, but feel free to render however you like before calling `Calque.check/2`:
 
 ```elixir
-defmodule MyApp.FancyRenderTest do
+defmodule MyApp.GreetingTest do
   use ExUnit.Case, async: true
 
   test "renders a friendly greeting" do
-      %{
-        hello: "world",
-        nums: [1, 2, 3, 4]
-      }
-      |> inspect(pretty: true)
-      |> Calque.snapshot()
+    %{hello: "world", nums: [1, 2, 3, 4]}
+    |> inspect(pretty: true)
+    |> Calque.check("greeting renders correctly")
   end
 end
 ```
 
-First run: Calque writes a new snapshot.
-Next runs: Calque diffs the current output against the saved snapshot.
+Snapshots live alongside your code in `calque_snapshots/`:
 
----
+- New snapshots are named `<title>.snap`.
+- Accepted snapshots become `<title>.accepted.snap` after review.
+- Rejected snapshots are renamed to `<title>.rejected.snap` so you can see what you declined.
 
-## 🖥️ CLI review
+Calque normalises Windows newlines to Unix newlines during comparison, so cross-platform reviews stay
+clean.
 
-When tests detect **new** or **mismatched** snapshots, Calque prints a friendly hint:
+## 🕹️ Reviewing snapshots
 
-```
-📝 Calque snapshot test failed
+Calque ships with interactive Mix tasks to help you triage snapshots quickly:
 
-── new snapshot ───────────────────────────────────────────────────────────────
-... content ...
-```
-
-Start the review loop:
-
-```bash
-mix calque review
+```text
+mix calque review        # interactive review (alias: mix calque r)
+mix calque accept-all    # accept every pending snapshot (alias: mix calque aa)
+mix calque reject-all    # reject every pending snapshot (alias: mix calque ra)
+mix calque help          # print usage information (alias: mix calque h)
 ```
 
-You'll see an interactive UI:
+Run `mix calque review` after your tests fail. The TUI clears the terminal, shows the diff, and lets
+you choose accept, reject, skip, or quit. Batch decisions with `mix calque accept-all` and
+`mix calque reject-all` when you already know the answer.
 
-```
-Reviewing snapshot 1 of 2
+## 🗂️ Recommended workflow
 
-── mismatched snapshot ────────────────────────────────────────────────────────
+1. 🧪 `mix test`
+2. 🔍 Inspect the diff Calque prints when a snapshot changes.
+3. 🎛️ Run `mix calque review` to accept, reject, or skip each pending snapshot.
+4. 📦 Commit accepted snapshots alongside the change that produced them.
 
-title:  My first snapshot ! :D    
+## 💡 Tips for reliable snapshots
 
-- old snapshot  
-+ new snapshot
--------┬-----------------------------------------------------------------------
-   1 - hello: "world"
-   1 + hello: "world!!"
--------┴-----------------------------------------------------------------------
+- ✂️ Strip timestamps, random IDs, and other volatile data before snapshotting.
+- 🏷️ Keep titles unique and descriptive—the title becomes the filename.
+- 🧾 Treat accepted snapshots like source: review them in PRs and keep them under version control.
 
-  a accept    r reject    s skip    q quit
-```
+## 🙌 Inspiration
 
-- Press `a` to accept and update the stored snapshot
-- Press `r` to reject (keeps the stored snapshot)
-- Press `s` to skip and continue
-- Press `q` to quit the interactive review
+Calque draws inspiration from the vibrant snapshot testing ecosystem:
 
----
+- 🐦‍⬛ [Birdie](https://github.com/giacomocavalieri/birdie) (Gleam)
+- 🦀 [insta](https://insta.rs) (Rust)
+- 🎙️ [Giacomo Cavalieri — *Intentional Snapshot Testing*](https://www.youtube.com/watch?v=DpakV96jeRk)
 
-## 🖍️ Writing great snapshot tests
-
-- Prefer stable, pretty representation. Do not hesitate to make your own !
-- Use normalizers to remove volatile data (timestamps, random IDS)
-- Keep **titles** meaningful and unique for easier review
-- Treat snapshots as part of your spec -- commit them with version control
-
----
-
-## 🫶 Inspirations and acknowledgments
-
-![Birdie (Gleam)](https://github.com/giacomocavalieri/birdie)
-![Insta (Rust)](https://github.com/mitsuhiko/insta)
-![Giacomo Cavalieri’s talk “Supercharge your tests with Snapshot Testing”](https://www.youtube.com/watch?v=DpakV96jeRk)
+If you enjoy Calque, give those projects (and talk!) a look for even more snapshot wisdom.
