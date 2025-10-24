@@ -1,6 +1,4 @@
 defmodule Calque.Snapshot do
-  @moduledoc false
-
   @enforce_keys [:title, :content, :status]
   defstruct [:title, :content, :status]
 

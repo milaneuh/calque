@@ -1,7 +1,7 @@
 # 📝 Calque — Snapshot testing for Elixir
 
 [![Hex.pm Package](https://img.shields.io/hexpm/v/calque.svg)](https://hex.pm/packages/calque)
-[![HexDocs](https://img.shields.io/badge/HexDocs-blue.svg)](https://hexdocs.pm/calque/1.0.1/Calque.html)
+[![HexDocs](https://img.shields.io/badge/HexDocs-blue.svg)](https://hexdocs.pm/calque/1.1.0/Calque.html)
 > **/kalk/** — “Calque” is a French word meaning *tracing paper* or *copy*.
 > Like its name, this library lets you trace your program’s output and compare it over time.
 
@@ -22,7 +22,7 @@ Add Calque as a test dependency and fetch it:
 ```elixir
 def deps do
   [
-    {:calque, "~> 1.0.1", only: :test}
+    {:calque, "~> 1.1.0", only: :test}
   ]
 end
 ```
@@ -38,12 +38,21 @@ You decide how to turn your value into a string before creating a snapshot, givi
 ```elixir
 defmodule MyApp.GreetingTest do
   use ExUnit.Case, async: true
-
+  
+  # Example using check/2
   test "renders a friendly greeting" do
     %{hello: "world", nums: [1, 2, 3, 4]}
     |> inspect(pretty: true)
     |> Calque.check("greeting renders correctly")
   end
+
+  # Example using check/1 
+  test "say hi to baloo" do
+    # The title is automatically set to "say hi to baloo"
+    "Hi baloo! You are my favorite bear."
+    |> Calque.check()
+  end
+
 end
 ```
 
