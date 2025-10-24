@@ -40,7 +40,22 @@ defmodule Calque do
   @doc """
   Performs a snapshot test with the given title, saving the content to a new
   snapshot file and comparing it to the accepted one.
+
+  The `check/1` macro is usually preferred for convenience, as it automatically
+  infers the snapshot title from the calling function.
+
+  ## Parameters
+
+  * `content` — The stringified output to snapshot.
+  * `title` — A unique identifier (string) for the snapshot. This is often the test name.
+
+  ## Returns
+
+  * `:ok` — If the output matches the accepted snapshot.
+  * **Raises an error** (`no_return()`) — If a new snapshot is created or the content
+      differs from the accepted snapshot.
   """
+
   @spec check(String.t(), String.t()) :: :ok | no_return()
   def check(content, title) do
     case do_check(content, title) do
@@ -81,6 +96,39 @@ defmodule Calque do
         IO.puts(:stderr, "\n" <> Error.explain(error) <> "\n")
         IO.puts(@snapshot_test_failed_message)
         fail!("snapshot #{inspect(title)} failed: #{Error.format_error(error)}")
+    end
+  end
+
+  @doc """
+  Performs a snapshot test using the **calling function name** as the snapshot title.
+
+  This macro is a **convenience shorthand** for `check/2`, where the required
+  `title` parameter is automatically derived from the function in which the macro is
+  called (e.g., the `test` block name in `ExUnit`).
+
+  It behaves exactly like `check/2`, comparing the given content to the accepted
+  snapshot and raising an error if a new or differing snapshot is found.
+
+  ## Parameters
+
+  * `content` — The stringified output to snapshot.
+
+  ## Returns
+
+  * `:ok` — If the output matches the accepted snapshot.
+  * **Raises an error** (`no_return()`) — If a new snapshot is created or the content
+    differs from the accepted snapshot.
+  """
+
+  @spec check(String.t()) :: :ok | no_return()
+  defmacro check(content) do
+    defining_mod = __MODULE__
+    {fun_name, _arity} = __CALLER__.function || {:no_function, 0}
+
+    title = to_string(fun_name)
+
+    quote do
+      unquote(defining_mod).check(unquote(content), unquote(title))
     end
   end
 
@@ -563,17 +611,16 @@ defmodule Calque do
   }
 
   @spec normalize_command([String.t()]) ::
-          {:ok, cli_command()} |
-            {:error, {:unknown_command, String.t()} | {:too_many_commands, [String.t()]}}
+          {:ok, cli_command()}
+          | {:error, {:unknown_command, String.t()} | {:too_many_commands, [String.t()]}}
   defp normalize_command([]), do: {:ok, :review}
 
   defp normalize_command([command]) do
-
     normalized = Map.get(@command_aliases, String.downcase(command))
 
-    case normalized do 
+    case normalized do
       nil -> {:error, {:unknown_command, command}}
-      normalized_alias -> {:ok, normalized}
+      _normalized_alias -> {:ok, normalized}
     end
   end
 

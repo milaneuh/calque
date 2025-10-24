@@ -1,0 +1,5 @@
+---
+version: 1.0.1
+title: test This is a snapshot test testing the macro
+---
+%{title: "This is a snapshot test checking a map"}
