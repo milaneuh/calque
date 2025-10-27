@@ -1,7 +1,7 @@
 # 📝 Calque — Snapshot testing for Elixir
 
 [![Hex.pm Package](https://img.shields.io/hexpm/v/calque.svg)](https://hex.pm/packages/calque)
-[![HexDocs](https://img.shields.io/badge/HexDocs-blue.svg)](https://hexdocs.pm/calque/1.1.0/Calque.html)
+[![HexDocs](https://img.shields.io/badge/HexDocs-blue.svg)](https://hexdocs.pm/calque/1.2.0/Calque.html)
 > **/kalk/** — “Calque” is a French word meaning *tracing paper* or *copy*.
 > Like its name, this library lets you trace your program’s output and compare it over time.
 
@@ -22,7 +22,7 @@ Add Calque as a test dependency and fetch it:
 ```elixir
 def deps do
   [
-    {:calque, "~> 1.1.0", only: :test}
+    {:calque, "~> 1.2.0", only: :test}
   ]
 end
 ```
