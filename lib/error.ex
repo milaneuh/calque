@@ -15,6 +15,7 @@ defmodule Calque.Error do
           | {:cannot_read_user_input, term()}
           | :aborted
           | {:cannot_find_project_root, term()}
+          | :snapshot_with_emtpy_title
 
   @spec explain(Error.t()) :: String.t()
   def explain(reason), do: "❌ " <> color(:red, format_error(reason))
@@ -22,6 +23,10 @@ defmodule Calque.Error do
   @spec format_error(Error.t()) :: String.t()
   def format_error({:cannot_create_snapshots_folder, reason}) do
     "I couldn't create the snapshots folder: #{format_file_error(reason)}"
+  end
+
+  def format_error(:snapshot_with_empty_title) do
+    "A snapshot can not have an empty title"
   end
 
   def format_error({:cannot_read_accepted_snapshot, reason, source}) do

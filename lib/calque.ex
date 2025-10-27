@@ -34,7 +34,7 @@ defmodule Calque do
 
   @version "1.1.0"
   @snapshot_folder "calque_snapshots"
-  @snapshot_test_failed_message "📝 Calque snapshot test failed"
+  @snapshot_test_failed_message "Calque snapshot test failed"
   @hint_review_message "Please review this snapshot using `mix calque review`"
 
   @doc """
@@ -120,7 +120,7 @@ defmodule Calque do
     differs from the accepted snapshot.
   """
 
-  @spec check(String.t()) :: :ok | no_return()
+  @spec check(term(), String.t()) :: :ok | no_return()
   defmacro check(content) do
     defining_mod = __MODULE__
     {fun_name, _arity} = __CALLER__.function || {:no_function, 0}
@@ -141,7 +141,8 @@ defmodule Calque do
           {:ok, :same | {:new_snapshot_created, map()} | {:different, map()}}
           | {:error, Error.t()}
   defp do_check(content, title) do
-    with {:ok, folder} <- find_snapshots_folder(),
+    with {:ok, title} <- verify_title(title),
+         {:ok, folder} <- find_snapshots_folder(),
          snapshot <- Snapshot.new(title, content),
          new_snapshot_path <- new_destination(snapshot, folder),
          accepted_snapshot_path <- to_accepted_path(new_snapshot_path),
@@ -170,6 +171,12 @@ defmodule Calque do
       end
     end
   end
+
+  @doc false
+  @spec verify_title(binary() | nil) :: {:ok, binary()} | {:error, Error.t()}
+  defp verify_title(nil), do: {:error, :snapshot_with_empty_title}
+  defp verify_title(""), do: {:error, :snapshot_with_empty_title}
+  defp verify_title(title), do: {:ok, title}
 
   @doc false
   @spec normalize_body(binary()) :: binary()
