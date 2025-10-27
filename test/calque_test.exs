@@ -25,4 +25,15 @@ defmodule CalqueTest do
     |> inspect()
     |> Calque.check()
   end
+
+  test "Checking a complex snapshot" do
+    """
+    case action do
+      :left -> slide_to_the_left()
+      :right -> slide_to_the_right()
+      _ -> criss_cross()
+    end
+    """
+    |> Calque.check()
+  end
 end

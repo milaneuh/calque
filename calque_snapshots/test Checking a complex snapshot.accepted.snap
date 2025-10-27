@@ -1,0 +1,9 @@
+---
+version: 1.2.0
+title: test Checking a complex snapshot
+---
+case action do
+  :left -> slide_to_the_left()
+  :right -> slide_to_the_right()
+  _ -> criss_cross()
+end

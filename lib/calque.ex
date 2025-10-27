@@ -28,7 +28,7 @@ defmodule Calque do
   ---
   """
 
-  alias Calque.{Snapshot, Diff, Error}
+  alias Calque.{Snapshot, Diff, Error, Levenshtein}
 
   @type snapshot :: Snapshot.t()
 
@@ -617,6 +617,7 @@ defmodule Calque do
     "h" => :help
   }
 
+  @doc false
   @spec normalize_command([String.t()]) ::
           {:ok, cli_command()}
           | {:error, {:unknown_command, String.t()} | {:too_many_commands, [String.t()]}}
@@ -627,12 +628,13 @@ defmodule Calque do
 
     case normalized do
       nil -> {:error, {:unknown_command, command}}
-      _normalized_alias -> {:ok, normalized}
+      _ -> {:ok, normalized}
     end
   end
 
   defp normalize_command(commands), do: {:error, {:too_many_commands, commands}}
 
+  @doc false
   @spec execute_command({:ok, cli_command()} | {:error, term()}) :: :ok
   defp execute_command({:ok, :review}), do: review_snapshots()
   defp execute_command({:ok, :accept_all}), do: accept_all_snapshots()
@@ -648,6 +650,7 @@ defmodule Calque do
   # -------------------------
   # CLI Internal logic
   # -------------------------
+  @doc false
   @spec review_snapshots() :: :ok
   defp review_snapshots do
     case find_snapshots_folder() do
@@ -668,9 +671,11 @@ defmodule Calque do
     end
   end
 
+  @doc false
   @spec do_review([], non_neg_integer(), non_neg_integer()) :: :ok
   defp do_review([], _current, _total), do: :ok
 
+  @doc false
   @spec do_review([Path.t()], pos_integer(), pos_integer()) :: :ok
   defp do_review([snapshot_path | rest], current, total) do
     IO.write("\e[H\e[2J")
@@ -680,6 +685,7 @@ defmodule Calque do
     |> handle_review(snapshot_path, rest, current, total)
   end
 
+  @doc false
   @spec handle_review(
           {:ok, snapshot} | {:error, Error.t()},
           Path.t(),
@@ -704,9 +710,11 @@ defmodule Calque do
     do_review(rest, current + 1, total)
   end
 
+  @doc false
   @spec accepted_path_for(Path.t()) :: Path.t()
   defp accepted_path_for(path), do: String.replace_suffix(path, ".snap", ".accepted.snap")
 
+  @doc false
   @spec review_box(Path.t(), snapshot) :: binary()
   defp review_box(accepted_path, new_snapshot) do
     case read_accepted_for(new_snapshot, accepted_path) do
@@ -722,6 +730,7 @@ defmodule Calque do
     end
   end
 
+  @doc false
   @spec display_review(binary(), pos_integer(), pos_integer()) :: :ok
   defp display_review(box, current, total) do
     IO.puts(IO.ANSI.cyan() <> "Reviewing snapshot #{current} of #{total}" <> IO.ANSI.reset())
@@ -729,6 +738,7 @@ defmodule Calque do
     :ok
   end
 
+  @doc false
   @spec resolve_choice(Path.t()) :: :continue | :aborted
   defp resolve_choice(snapshot_path) do
     case ask_choice() do
@@ -863,6 +873,7 @@ defmodule Calque do
     prompt_choice()
   end
 
+  @doc false
   @spec print_choice_menu() :: :ok
   defp print_choice_menu do
     IO.puts(
@@ -884,6 +895,7 @@ defmodule Calque do
     :ok
   end
 
+  @doc false
   @spec prompt_choice() :: :accept | :reject | :skip | :aborted | {:error, Error.t()}
   defp prompt_choice do
     case IO.gets("> ") do
@@ -900,6 +912,7 @@ defmodule Calque do
     end
   end
 
+  @doc false
   @spec parse_choice(String.t()) :: :accept | :reject | :skip | :aborted | {:error, Error.t()}
   defp parse_choice(choice) do
     case choice do
@@ -912,6 +925,7 @@ defmodule Calque do
     end
   end
 
+  @doc false
   @spec retry_choice() :: :accept | :reject | :skip | :aborted | {:error, Error.t()}
   defp retry_choice do
     print_choice_menu()
@@ -975,7 +989,32 @@ defmodule Calque do
   @spec unexpected_subcommand(String.t()) :: :ok
   defp unexpected_subcommand(cmd) do
     IO.puts(IO.ANSI.red() <> "Error: #{cmd} isn't a valid subcommand." <> IO.ANSI.reset())
-    show_help()
+
+    case closest_command(cmd) do
+      nil ->
+        show_help()
+
+      command ->
+        suggest_command(command)
+    end
+  end
+
+  @doc false
+  @spec suggest_command(String.t()) :: :ok
+  defp suggest_command(suggestion) do
+    msg =
+      IO.ANSI.yellow() <>
+        "I think you misspelled `#{suggestion}` would you like to run it instead ? [Y/n]\n" <>
+        IO.ANSI.reset() <> "\n> "
+
+    case IO.gets(msg) |> String.trim() |> String.downcase() do
+      value when value in ["yes", "y"] ->
+        command = Map.get(@command_aliases, suggestion)
+        execute_command({:ok, command})
+
+      _ ->
+        show_help()
+    end
   end
 
   @doc false
@@ -987,5 +1026,31 @@ defmodule Calque do
     )
 
     show_help()
+  end
+
+  @commands [
+    "review",
+    "accept-all",
+    "reject-all",
+    "help"
+  ]
+
+  @doc false
+  @spec closest_command(String.t()) :: String.t() | nil
+  defp closest_command(s) do
+    commands =
+      @commands
+      |> Enum.map(fn c -> {c, Levenshtein.distance(s, c)} end)
+      |> Enum.filter(fn {_, d} -> d <= 3 end)
+      |> Enum.sort(fn x, y -> x <= y end)
+
+    case commands do
+      [] ->
+        nil
+
+      [head | _tail] ->
+        {command, _} = head
+        command
+    end
   end
 end
