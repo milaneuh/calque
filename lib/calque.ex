@@ -462,8 +462,8 @@ defmodule Calque do
 
     content = Enum.map_join(content_lines, "\n", &pretty_diff_line(&1, padding))
 
-    left_padding_line = String.duplicate("-", padding)
-    right_padding_line = String.duplicate("-", terminal_width - padding - 1)
+    left_padding_line = String.duplicate("─", padding)
+    right_padding_line = String.duplicate("─", terminal_width - padding - 1)
     open_line = left_padding_line <> "┬" <> right_padding_line
     closed_line = left_padding_line <> "┴" <> right_padding_line
 
@@ -888,7 +888,7 @@ defmodule Calque do
         IO.ANSI.yellow() <>
         "  s" <>
         IO.ANSI.reset() <>
-        " skip     " <>
+        " skip  " <>
         IO.ANSI.cyan() <> "  q" <> IO.ANSI.reset() <> " quit"
     )
 
