@@ -32,7 +32,7 @@ defmodule Calque do
 
   @type snapshot :: Snapshot.t()
 
-  @version "1.2.0"
+  @version "1.3.0"
   @snapshot_folder "calque_snapshots"
   @snapshot_test_failed_message "Calque snapshot test failed"
   @hint_review_message "Please review this snapshot using `mix calque review`"
