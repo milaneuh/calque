@@ -40,8 +40,7 @@ defmodule Calque.Levenshtein do
     up_left0 = hd(prev_row)
 
     {row_rev, _last_up} =
-      Enum.reduce(Enum.with_index(t, 1), {[first_cell], up_left0}, fn {tc, j},
-                                                                      {row_rev, up_left} ->
+      Enum.reduce(Enum.with_index(t, 1), {[first_cell], up_left0}, fn {tc, j}, {row_rev, up_left} ->
         left = hd(row_rev)
         up = Enum.at(prev_row, j)
         cost = if sc == tc, do: 0, else: 1

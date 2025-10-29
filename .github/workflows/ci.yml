@@ -1,0 +1,65 @@
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Docs (latest)
+    runs-on: ubuntu-latest
+    env:
+      MIX_ENV: dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.18.4"
+          otp-version: "27.0"
+          install-hex: true
+          install-rebar: true
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix credo --strict
+      - run: mix docs
+      - run: mix hex.build
+
+  test:
+    name: Test (Elixir 1.12, 1.15, 1.18)
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Elixir 1.12: use ubuntu-22.04 + OTP 24.3 (non-legacy on 22.04)
+          - elixir: "1.12.3"
+            otp: "24.3"
+            runner: ubuntu-22.04
+          # Modern combos on ubuntu-latest
+          - elixir: "1.15.8"
+            otp: "26.2"
+            runner: ubuntu-latest
+          - elixir: "1.18.4"
+            otp: "27.0"
+            runner: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+          install-hex: true
+          install-rebar: true
+      - run: mix deps.get --only $MIX_ENV
+      - run: mix compile --warnings-as-errors
+      - run: mix test --color --trace
+

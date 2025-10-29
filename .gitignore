@@ -21,7 +21,3 @@ calque-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
-
-.DS_Store
-.formatter.exs
-mix.lock

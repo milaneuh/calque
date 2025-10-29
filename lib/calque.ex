@@ -28,7 +28,7 @@ defmodule Calque do
   ---
   """
 
-  alias Calque.{Snapshot, Diff, Error, Levenshtein}
+  alias Calque.{Diff, Error, Levenshtein, Snapshot}
 
   @type snapshot :: Snapshot.t()
 
@@ -195,7 +195,7 @@ defmodule Calque do
   end
 
   # -------------------------
-  # FILE OPERATIONS 
+  # FILE OPERATIONS
   # -------------------------
 
   @doc false
@@ -297,7 +297,7 @@ defmodule Calque do
   defp to_accepted_path(path), do: String.replace_suffix(path, ".snap", ".accepted.snap")
 
   # -------------------------
-  # SNAPSHOT DE/SERIALIZATION 
+  # SNAPSHOT DE/SERIALIZATION
   # -------------------------
 
   @doc false
@@ -351,7 +351,7 @@ defmodule Calque do
   end
 
   # -------------------------
-  # SNAPSHOT DIFFING  
+  # SNAPSHOT DIFFING
   # -------------------------
 
   @doc false
@@ -376,7 +376,7 @@ defmodule Calque do
   end
 
   # -------------------------
-  # PRETTY PRINTING 
+  # PRETTY PRINTING
   # -------------------------
 
   @doc false
