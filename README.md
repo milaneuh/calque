@@ -80,6 +80,7 @@ Run `mix calque review` after your tests fail. The TUI clears the terminal, show
 you choose accept, reject, skip, or quit. Batch decisions with `mix calque accept-all` and
 `mix calque reject-all` when you already know the answer.
 
+![image](https://raw.githubusercontent.com/milaneuh/calque/refs/heads/master/calque.gif)
 ## Inspiration
 
 Calque draws inspiration from the vibrant snapshot testing ecosystem:
