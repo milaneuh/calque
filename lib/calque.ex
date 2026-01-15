@@ -38,24 +38,32 @@ defmodule Calque do
   @hint_review_message "Please review this snapshot using `mix calque review`"
 
   @doc """
-  Performs a snapshot test with the given title, saving the content to a new
-  snapshot file and comparing it to the accepted one.
+  Performs a snapshot test with an explicit snapshot title.
 
-  The `check/1` macro is usually preferred for convenience, as it automatically
-  infers the snapshot title from the calling function.
+  This function writes the given content to a snapshot file (if none exists)
+  and compares it against the previously accepted snapshot.
 
-  ## Parameters
+  In practice, you will usually prefer `check/1`, which automatically derives
+  the snapshot title from the calling test. Use `check/2` when you need full
+  control over the snapshot name.
 
-  * `content` — The stringified output to snapshot.
-  * `title` — A unique identifier (string) for the snapshot. This is often the test name.
+  ## Examples
 
-  ## Returns
+  Using an explicit snapshot title:
 
-  * `:ok` — If the output matches the accepted snapshot.
-  * **Raises an error** (`no_return()`) — If a new snapshot is created or the content
-      differs from the accepted snapshot.
+      test "renders order confirmation" do
+        html = render_confirmation(order)
+
+        Calque.check(html, "order_confirmation")
+      end
+
+  If the snapshot matches the accepted version, the test passes silently:
+
+      :ok
+
+  If no snapshot exists yet, or if the content differs, the test fails and
+  prints a helpful diff.
   """
-
   @spec check(String.t(), String.t()) :: :ok | no_return()
   def check(content, title) do
     case do_check(content, title) do
@@ -102,25 +110,32 @@ defmodule Calque do
   @doc """
   Performs a snapshot test using the **calling function name** as the snapshot title.
 
-  This macro is a **convenience shorthand** for `check/2`, where the required
-  `title` parameter is automatically derived from the function in which the macro is
-  called (e.g., the `test` block name in `ExUnit`).
+  This macro is a convenience wrapper around `check/2`. The snapshot title is
+  automatically inferred from the surrounding function or test name, making it
+  the preferred API in most cases.
 
-  It behaves exactly like `check/2`, comparing the given content to the accepted
-  snapshot and raising an error if a new or differing snapshot is found.
+  It behaves exactly like `check/2`: the content is compared against the accepted
+  snapshot, and the test fails if a new snapshot is created or a difference is
+  detected.
 
-  ## Parameters
+  ## Examples
 
-  * `content` — The stringified output to snapshot.
+  Inside an ExUnit test:
 
-  ## Returns
+      test "renders empty state" do
+        html = render_empty_state()
 
-  * `:ok` — If the output matches the accepted snapshot.
-  * **Raises an error** (`no_return()`) — If a new snapshot is created or the content
-    differs from the accepted snapshot.
+        Calque.check(html)
+      end
+
+  The snapshot title will automatically be set to:
+
+      "renders empty state"
+
+  This keeps snapshot names stable and closely aligned with test intent, without
+  requiring any manual naming.
   """
-
-  @spec check(term(), String.t()) :: :ok | no_return()
+  @spec check(term()) :: :ok | no_return()
   defmacro check(content) do
     defining_mod = __MODULE__
     {fun_name, _arity} = __CALLER__.function || {:no_function, 0}
