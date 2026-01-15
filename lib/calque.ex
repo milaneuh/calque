@@ -32,7 +32,7 @@ defmodule Calque do
 
   @type snapshot :: Snapshot.t()
 
-  @version "1.3.1"
+  @version "1.4.1"
   @snapshot_folder "calque_snapshots"
   @snapshot_test_failed_message "Calque snapshot test failed"
   @hint_review_message "Please review this snapshot using `mix calque review`"
@@ -135,7 +135,7 @@ defmodule Calque do
   This keeps snapshot names stable and closely aligned with test intent, without
   requiring any manual naming.
   """
-  @spec check(term()) :: :ok | no_return()
+  @spec check(String.t()) :: :ok | no_return()
   defmacro check(content) do
     defining_mod = __MODULE__
     {fun_name, _arity} = __CALLER__.function || {:no_function, 0}
