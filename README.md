@@ -38,7 +38,6 @@ You decide how to turn your value into a string before creating a snapshot, givi
 ```elixir
 defmodule MyApp.GreetingTest do
   use ExUnit.Case, async: true
-
   # Example using check/2
   test "renders a friendly greeting" do
     %{hello: "world", nums: [1, 2, 3, 4]}

@@ -65,8 +65,73 @@ defmodule Calque do
   prints a helpful diff.
   """
   @spec check(String.t(), String.t()) :: :ok | no_return()
-  def check(content, title) do
-    case do_check(content, title) do
+  defmacro check(content, title) do
+    defining_mod = __MODULE__
+
+    file = __CALLER__.file
+    line = __CALLER__.line
+
+    relative_path = Path.relative_to_cwd(file) |> to_string()
+    source = "#{relative_path}:#{line}"
+
+    quote do
+      unquote(defining_mod).check(unquote(content), unquote(title), unquote(source))
+    end
+  end
+
+  @doc """
+  Performs a snapshot test using the **calling function name** as the snapshot title.
+
+  This macro is a convenience wrapper around `check/2`. The snapshot title is
+  automatically inferred from the surrounding function or test name, making it
+  the preferred API in most cases.
+
+  It behaves exactly like `check/2`: the content is compared against the accepted
+  snapshot, and the test fails if a new snapshot is created or a difference is
+  detected.
+
+  ## Examples
+
+  Inside an ExUnit test:
+
+      test "renders empty state" do
+        html = render_empty_state()
+
+        Calque.check(html)
+      end
+
+  The snapshot title will automatically be set to:
+
+      "renders empty state"
+
+  This keeps snapshot names stable and closely aligned with test intent, without
+  requiring any manual naming.
+  """
+  @spec check(String.t()) :: :ok | no_return()
+  defmacro check(content) do
+    defining_mod = __MODULE__
+
+    {fun_name, _arity} = __CALLER__.function || {:no_function, 0}
+    file = __CALLER__.file
+    line = __CALLER__.line
+
+    title = to_string(fun_name)
+    relative_path = Path.relative_to_cwd(file) |> to_string()
+    source = "#{relative_path}:#{line}"
+
+    quote do
+      unquote(defining_mod).check(unquote(content), unquote(title), unquote(source))
+    end
+  end
+
+  # -------------------------
+  # INTERNAL LOGIC
+  # -------------------------
+
+  @doc false
+  @spec check(String.t(), String.t(), String.t()) :: :ok | no_return()
+  def check(content, title, source) do
+    case do_check(content, title, source) do
       {:ok, :same} ->
         :ok
 
@@ -107,58 +172,14 @@ defmodule Calque do
     end
   end
 
-  @doc """
-  Performs a snapshot test using the **calling function name** as the snapshot title.
-
-  This macro is a convenience wrapper around `check/2`. The snapshot title is
-  automatically inferred from the surrounding function or test name, making it
-  the preferred API in most cases.
-
-  It behaves exactly like `check/2`: the content is compared against the accepted
-  snapshot, and the test fails if a new snapshot is created or a difference is
-  detected.
-
-  ## Examples
-
-  Inside an ExUnit test:
-
-      test "renders empty state" do
-        html = render_empty_state()
-
-        Calque.check(html)
-      end
-
-  The snapshot title will automatically be set to:
-
-      "renders empty state"
-
-  This keeps snapshot names stable and closely aligned with test intent, without
-  requiring any manual naming.
-  """
-  @spec check(String.t()) :: :ok | no_return()
-  defmacro check(content) do
-    defining_mod = __MODULE__
-    {fun_name, _arity} = __CALLER__.function || {:no_function, 0}
-
-    title = to_string(fun_name)
-
-    quote do
-      unquote(defining_mod).check(unquote(content), unquote(title))
-    end
-  end
-
-  # -------------------------
-  # INTERNAL LOGIC
-  # -------------------------
-
   @doc false
-  @spec do_check(String.t(), String.t()) ::
+  @spec do_check(String.t(), String.t(), String.t()) ::
           {:ok, :same | {:new_snapshot_created, map()} | {:different, map()}}
           | {:error, Error.t()}
-  defp do_check(content, title) do
+  defp do_check(content, title, source) do
     with {:ok, title} <- verify_title(title),
          {:ok, folder} <- find_snapshots_folder(),
-         snapshot <- Snapshot.new(title, content),
+         snapshot <- Snapshot.new(title, content, source),
          new_snapshot_path <- new_destination(snapshot, folder),
          accepted_snapshot_path <- to_accepted_path(new_snapshot_path),
          {:ok, accepted} <- read_accepted(accepted_snapshot_path) do
@@ -317,13 +338,14 @@ defmodule Calque do
 
   @doc false
   @spec serialise(snapshot) :: binary()
-  defp serialise(%Snapshot{title: title, content: content}) do
+  defp serialise(%Snapshot{title: title, content: content, source: source}) do
     escaped_title = String.replace(title, "\n", "\\n")
 
     [
       "---",
       "version: #{@version}",
       "title: #{escaped_title}",
+      "source: #{source}",
       "---",
       content
     ]
@@ -341,19 +363,40 @@ defmodule Calque do
          {:ok, {_version_line, rest}} <- split_once(rest),
          {:ok, {title_line, rest}} <- split_once(rest),
          "title: " <> escaped_title <- title_line,
-         {:ok, {close_line, content}} <- split_once(rest),
-         true <- close_line == "---" do
+         {:ok, {source, content}} <- parse_source_and_content(rest) do
       title = String.replace(escaped_title, "\\n", "\n")
-      {:ok, build_snapshot(title, content, status)}
+      {:ok, build_snapshot(title, content, status, source)}
     else
       _ -> {:error, :invalid_snapshot}
     end
   end
 
   @doc false
-  @spec build_snapshot(binary(), binary(), :new | :accepted) :: snapshot
-  defp build_snapshot(title, content, :new), do: Snapshot.new(title, content)
-  defp build_snapshot(title, content, :accepted), do: Snapshot.accepted(title, content)
+  @spec parse_source_and_content(binary()) :: {:ok, {binary() | nil, binary()}} | {:error, nil}
+  defp parse_source_and_content(rest) do
+    with {:ok, {next_line, remaining}} <- split_once(rest) do
+      case next_line do
+        "source: " <> escaped_source ->
+          with {:ok, {"---", content}} <- split_once(remaining) do
+            source = String.replace(escaped_source, "\\n", "\n")
+            {:ok, {source, content}}
+          end
+
+        "---" ->
+          {:ok, {nil, remaining}}
+
+        _ ->
+          {:error, nil}
+      end
+    end
+  end
+
+  @doc false
+  @spec build_snapshot(binary(), binary(), :new | :accepted, binary() | nil) :: snapshot
+  defp build_snapshot(title, content, :new, source), do: Snapshot.new(title, content, source)
+
+  defp build_snapshot(title, content, :accepted, source),
+    do: Snapshot.accepted(title, content, source)
 
   @doc false
   @spec split_once(binary()) :: {:ok, {binary(), binary()}} | {:error, nil}
@@ -416,6 +459,12 @@ defmodule Calque do
           content: snapshot.title,
           split: :split_words,
           title: "title"
+        },
+        %{
+          type: :info_line_with_title,
+          content: snapshot.source,
+          split: :no_split,
+          title: "source"
         }
       ] ++ List.wrap(additional_info_lines)
 
@@ -432,6 +481,12 @@ defmodule Calque do
           content: new.title,
           split: :split_words,
           title: "title"
+        },
+        %{
+          type: :info_line_with_title,
+          content: new.source,
+          split: :no_split,
+          title: "source"
         }
       ] ++
         List.wrap(additional_info_lines) ++

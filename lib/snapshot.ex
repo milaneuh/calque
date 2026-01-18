@@ -17,18 +17,23 @@ defmodule Calque.Snapshot do
   are handled by higher-level modules such as `Calque` and `Calque.Diff`.
   """
 
-  @enforce_keys [:title, :content, :status]
-  defstruct [:title, :content, :status]
+  @enforce_keys [:title, :content, :status, :source]
+  defstruct [:title, :content, :status, :source]
 
-  @type t :: %__MODULE__{title: String.t(), content: String.t(), status: :new | :accepted}
+  @type t :: %__MODULE__{
+          title: String.t(),
+          content: String.t(),
+          status: :new | :accepted,
+          source: String.t() | nil
+        }
 
-  @spec new(String.t(), String.t()) :: t
-  def new(title, content) do
-    %__MODULE__{title: title, content: content, status: :new}
+  @spec new(String.t(), String.t(), String.t()) :: t
+  def new(title, content, source) do
+    %__MODULE__{title: title, content: content, status: :new, source: source}
   end
 
-  @spec accepted(String.t(), String.t()) :: t
-  def accepted(title, content) do
-    %__MODULE__{title: title, content: content, status: :accepted}
+  @spec accepted(String.t(), String.t(), String.t() | nil) :: t
+  def accepted(title, content, source) do
+    %__MODULE__{title: title, content: content, status: :accepted, source: source}
   end
 end
