@@ -2,6 +2,15 @@
 
 All notable changes to Calque are documented in this file.
 
+## [1.5.0] - 2026-01-18
+
+### Added
+- Source location tracking for snapshots (displays `file:line` in snapshot output)
+- Backward compatibility with legacy snapshot format (without source field)
+
+### Changed
+- `check/1` and `check/2` are now macros to capture source location at compile time
+
 ## [1.4.1] - 2026-01-15
 
 ### Fixed
