@@ -1,6 +1,6 @@
 # .formatter.exs
 [
-  import_deps: [:credo, :ex_doc],
+  import_deps: [:credo],
   inputs: [
     "{mix,.formatter}.exs",
     "{config,lib,test}/**/*.{ex,exs}"
