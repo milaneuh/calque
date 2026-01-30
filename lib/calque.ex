@@ -35,7 +35,7 @@ defmodule Calque do
   @version "1.5.0"
   @snapshot_folder "calque_snapshots"
   @snapshot_test_failed_message "Calque snapshot test failed"
-  @hint_review_message "Please review this snapshot using `mix calque review`"
+  @hint_review_message "Please review this snapshot using #{IO.ANSI.bright()}`mix calque review`#{IO.ANSI.reset()}"
 
   @doc """
   Performs a snapshot test with an explicit snapshot title.
