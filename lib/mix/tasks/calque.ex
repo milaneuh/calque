@@ -15,7 +15,6 @@ defmodule Mix.Tasks.Calque do
 
   @impl true
   def run(args) do
-    Mix.Task.run("app.start")
     Calque.main(args)
   end
 end
