@@ -2,6 +2,14 @@
 
 All notable changes to Calque are documented in this file.
 
+## [1.5.1] - 2026-01-30
+
+### Fixed
+- Removed unnecessary `app.start` from mix task (no longer starts the application)
+
+### Changed
+- Made `mix calque review` command bold in hint message
+
 ## [1.5.0] - 2026-01-18
 
 ### Added
