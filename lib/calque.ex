@@ -23,6 +23,7 @@ defmodule Calque do
   - `mix calque review` — review new or changed snapshots interactively
   - `mix calque accept-all` — accept all pending snapshots
   - `mix calque reject-all` — reject all pending snapshots
+  - `mix calque clean` — delete pending, rejected, and unreferenced snapshots
   - `mix calque help` — show CLI usage information
 
   ---
@@ -32,7 +33,7 @@ defmodule Calque do
 
   @type snapshot :: Snapshot.t()
 
-  @version "1.5.0"
+  @version "1.5.1"
   @snapshot_folder "calque_snapshots"
   @snapshot_test_failed_message "Calque snapshot test failed"
   @hint_review_message "Please review this snapshot using #{IO.ANSI.bright()}`mix calque review`#{IO.ANSI.reset()}"
@@ -177,34 +178,43 @@ defmodule Calque do
           {:ok, :same | {:new_snapshot_created, map()} | {:different, map()}}
           | {:error, Error.t()}
   defp do_check(content, title, source) do
-    with {:ok, title} <- verify_title(title),
-         {:ok, folder} <- find_snapshots_folder(),
-         snapshot <- Snapshot.new(title, content, source),
-         new_snapshot_path <- new_destination(snapshot, folder),
-         accepted_snapshot_path <- to_accepted_path(new_snapshot_path),
-         {:ok, accepted} <- read_accepted(accepted_snapshot_path) do
-      case accepted do
-        nil ->
-          with :ok <- save(snapshot, new_snapshot_path) do
-            {:ok, {:new_snapshot_created, %{snapshot: snapshot, path: new_snapshot_path}}}
-          end
+    with(
+      {:ok, title} <- verify_title(title),
+      {:ok, folder} <- find_snapshots_folder(),
+      snapshot <- Snapshot.new(title, content, source),
+      new_snapshot_path <- new_destination(snapshot, folder),
+      accepted_snapshot_path <- to_accepted_path(new_snapshot_path),
+      {:ok, accepted} <- read_accepted(accepted_snapshot_path)
+    ) do
+      compare_snapshots(accepted, snapshot, content, new_snapshot_path)
+    end
+  end
 
-        %Snapshot{} = accepted_snapshot ->
-          if normalize_body(accepted_snapshot.content) == normalize_body(content) do
-            cleanup_if_present(new_snapshot_path)
-            {:ok, :same}
-          else
-            with :ok <- save(snapshot, new_snapshot_path) do
-              {:ok,
-               {:different,
-                %{
-                  accepted: accepted_snapshot,
-                  new: snapshot,
-                  path: new_snapshot_path
-                }}}
-            end
-          end
-      end
+  @doc false
+  @spec compare_snapshots(snapshot | nil, snapshot, String.t(), Path.t()) ::
+          {:ok, :same | {:new_snapshot_created, map()} | {:different, map()}}
+          | {:error, Error.t()}
+  defp compare_snapshots(nil, snapshot, _content, new_snapshot_path) do
+    with :ok <- save(snapshot, new_snapshot_path) do
+      {:ok, {:new_snapshot_created, %{snapshot: snapshot, path: new_snapshot_path}}}
+    end
+  end
+
+  defp compare_snapshots(%Snapshot{} = accepted, snapshot, content, new_snapshot_path) do
+    if normalize_body(accepted.content) == normalize_body(content) do
+      cleanup_if_present(new_snapshot_path)
+      {:ok, :same}
+    else
+      save_different_snapshot(accepted, snapshot, new_snapshot_path)
+    end
+  end
+
+  @doc false
+  @spec save_different_snapshot(snapshot, snapshot, Path.t()) ::
+          {:ok, {:different, map()}} | {:error, Error.t()}
+  defp save_different_snapshot(accepted, snapshot, new_snapshot_path) do
+    with :ok <- save(snapshot, new_snapshot_path) do
+      {:ok, {:different, %{accepted: accepted, new: snapshot, path: new_snapshot_path}}}
     end
   end
 
@@ -295,21 +305,17 @@ defmodule Calque do
   @doc false
   @spec find_snapshots_folder() :: {:ok, Path.t()} | {:error, Error.t()}
   defp find_snapshots_folder do
-    case File.mkdir_p(@snapshot_folder) do
-      :ok ->
-        case File.stat(@snapshot_folder) do
-          {:ok, %File.Stat{type: :directory}} ->
-            {:ok, @snapshot_folder}
-
-          {:ok, _} ->
-            {:error, {:cannot_create_snapshots_folder, :not_a_directory}}
-
-          {:error, reason} ->
-            {:error, {:cannot_create_snapshots_folder, reason}}
-        end
-
+    with(
+      :ok <- File.mkdir_p(@snapshot_folder),
+      {:ok, %File.Stat{type: :directory}} <- File.stat(@snapshot_folder)
+    ) do
+      {:ok, @snapshot_folder}
+    else
       {:error, reason} ->
         {:error, {:cannot_create_snapshots_folder, reason}}
+
+      {:ok, %File.Stat{}} ->
+        {:ok, @snapshot_folder}
     end
   end
 
@@ -380,21 +386,21 @@ defmodule Calque do
   @spec parse_source_and_content(binary()) :: {:ok, {binary() | nil, binary()}} | {:error, nil}
   defp parse_source_and_content(rest) do
     with {:ok, {next_line, remaining}} <- split_once(rest) do
-      case next_line do
-        "source: " <> escaped_source ->
-          with {:ok, {"---", content}} <- split_once(remaining) do
-            source = String.replace(escaped_source, "\\n", "\n")
-            {:ok, {source, content}}
-          end
-
-        "---" ->
-          {:ok, {nil, remaining}}
-
-        _ ->
-          {:error, nil}
-      end
+      parse_next_line(next_line, remaining)
     end
   end
+
+  @doc false
+  @spec parse_next_line(binary(), binary()) :: {:ok, {binary() | nil, binary()}} | {:error, nil}
+  defp parse_next_line("source: " <> escaped_source, remaining) do
+    with {:ok, {"---", content}} <- split_once(remaining) do
+      source = String.replace(escaped_source, "\\n", "\n")
+      {:ok, {source, content}}
+    end
+  end
+
+  defp parse_next_line("---", remaining), do: {:ok, {nil, remaining}}
+  defp parse_next_line(_, _), do: {:error, nil}
 
   @doc false
   @spec build_snapshot(binary(), binary(), :new | :accepted, binary() | nil) :: snapshot
@@ -679,7 +685,7 @@ defmodule Calque do
     |> execute_command()
   end
 
-  @type cli_command :: :review | :accept_all | :reject_all | :help
+  @type cli_command :: :review | :accept_all | :reject_all | :clean | :help
 
   @command_aliases %{
     "review" => :review,
@@ -688,6 +694,8 @@ defmodule Calque do
     "aa" => :accept_all,
     "reject-all" => :reject_all,
     "ra" => :reject_all,
+    "clean" => :clean,
+    "c" => :clean,
     "help" => :help,
     "h" => :help
   }
@@ -714,6 +722,7 @@ defmodule Calque do
   defp execute_command({:ok, :review}), do: review_snapshots()
   defp execute_command({:ok, :accept_all}), do: accept_all_snapshots()
   defp execute_command({:ok, :reject_all}), do: reject_all_snapshots()
+  defp execute_command({:ok, :clean}), do: clean_snapshots()
   defp execute_command({:ok, :help}), do: show_help()
 
   defp execute_command({:error, {:unknown_command, command}}),
@@ -872,6 +881,32 @@ defmodule Calque do
     end
   end
 
+  @doc false
+  @spec clean_snapshots() :: :ok
+  defp clean_snapshots do
+    IO.puts("Looking for snapshots to clean...")
+
+    with {:ok, folder} <- find_snapshots_folder(),
+         {:ok, pending} <- list_new_snapshots(folder),
+         {:ok, rejected} <- list_rejected_snapshots(folder),
+         {:ok, accepted} <- list_accepted_snapshots(folder) do
+      unreferenced = Enum.filter(accepted, &unreferenced?/1)
+      total = length(pending) + length(rejected) + length(unreferenced)
+
+      if total == 0 do
+        IO.puts(IO.ANSI.green() <> "Nothing to clean." <> IO.ANSI.reset())
+      else
+        Enum.each(pending, &delete_snapshot(&1, "pending"))
+        Enum.each(rejected, &delete_snapshot(&1, "rejected"))
+        Enum.each(unreferenced, &delete_snapshot(&1, "unreferenced"))
+        IO.puts(IO.ANSI.green() <> "\nDone! Cleaned #{total} snapshot(s)." <> IO.ANSI.reset())
+      end
+    else
+      {:error, tagged} ->
+        IO.puts(Error.explain(tagged))
+    end
+  end
+
   # -------------------------
   # Helper functions
   # -------------------------
@@ -895,6 +930,101 @@ defmodule Calque do
 
       {:error, reason} ->
         {:error, {:cannot_read_snapshots, reason, folder}}
+    end
+  end
+
+  @doc false
+  @spec list_rejected_snapshots(Path.t()) :: {:ok, [Path.t()]} | {:error, Error.t()}
+  defp list_rejected_snapshots(folder) do
+    case File.ls(folder) do
+      {:ok, entries} ->
+        snapshots =
+          entries
+          |> Enum.filter(&String.ends_with?(&1, ".rejected.snap"))
+          |> Enum.sort()
+          |> Enum.map(&Path.join(folder, &1))
+
+        {:ok, snapshots}
+
+      {:error, reason} ->
+        {:error, {:cannot_read_snapshots, reason, folder}}
+    end
+  end
+
+  @doc false
+  @spec list_accepted_snapshots(Path.t()) :: {:ok, [Path.t()]} | {:error, Error.t()}
+  defp list_accepted_snapshots(folder) do
+    case File.ls(folder) do
+      {:ok, entries} ->
+        snapshots =
+          entries
+          |> Enum.filter(&String.ends_with?(&1, ".accepted.snap"))
+          |> Enum.sort()
+          |> Enum.map(&Path.join(folder, &1))
+
+        {:ok, snapshots}
+
+      {:error, reason} ->
+        {:error, {:cannot_read_snapshots, reason, folder}}
+    end
+  end
+
+  @doc false
+  @spec unreferenced?(Path.t()) :: boolean()
+  defp unreferenced?(path) do
+    case File.read(path) do
+      {:ok, raw} ->
+        case deserialise(raw, :accepted) do
+          {:ok, %Snapshot{title: title}} ->
+            not title_referenced_anywhere?(title)
+
+          _ ->
+            false
+        end
+
+      _ ->
+        false
+    end
+  end
+
+  @doc false
+  @spec title_referenced_anywhere?(String.t()) :: boolean()
+  defp title_referenced_anywhere?(title) do
+    files = Path.wildcard("test/**/*.exs")
+
+    Enum.any?(files, &title_in_file?(&1, title))
+  end
+
+  @doc false
+  @spec title_in_file?(Path.t(), String.t()) :: boolean()
+  defp title_in_file?(file_path, title) do
+    case File.read(file_path) do
+      {:ok, content} -> String.contains?(content, title)
+      _ -> false
+    end
+  end
+
+  @doc false
+  @spec delete_snapshot(Path.t(), String.t()) :: :ok | Error.t()
+  defp delete_snapshot(path, label) do
+    case File.rm(path) do
+      :ok ->
+        IO.puts(
+          IO.ANSI.red() <>
+            "Removed " <>
+            Path.basename(path) <>
+            IO.ANSI.reset() <>
+            IO.ANSI.faint() <>
+            " (#{label})" <>
+            IO.ANSI.reset()
+        )
+
+        :ok
+
+      {:error, reason} ->
+        tagged = {:cannot_delete_snapshot, reason, path}
+        IO.puts(Error.explain(tagged))
+        tagged
     end
   end
 
@@ -1056,6 +1186,7 @@ defmodule Calque do
       #{IO.ANSI.green()}review#{IO.ANSI.reset()}       Review all new snapshots one by one
       #{IO.ANSI.green()}accept-all#{IO.ANSI.reset()}   Accept all new snapshots
       #{IO.ANSI.green()}reject-all#{IO.ANSI.reset()}   Reject all new snapshots
+      #{IO.ANSI.green()}clean#{IO.ANSI.reset()}        Delete pending, rejected, and unreferenced snapshots
       #{IO.ANSI.green()}help#{IO.ANSI.reset()}         Show this help text
     """)
   end
@@ -1107,6 +1238,7 @@ defmodule Calque do
     "review",
     "accept-all",
     "reject-all",
+    "clean",
     "help"
   ]
 

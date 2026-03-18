@@ -10,6 +10,7 @@ defmodule Calque.Error do
           | {:cannot_read_snapshots, term(), Path.t()}
           | {:cannot_reject_snapshot, term(), Path.t()}
           | {:cannot_accept_snapshot, term(), Path.t()}
+          | {:cannot_delete_snapshot, term(), Path.t()}
           | {:corrupted_snapshot, Path.t()}
           | :cannot_read_user_input
           | {:cannot_read_user_input, term()}
@@ -51,6 +52,10 @@ defmodule Calque.Error do
 
   def format_error({:cannot_accept_snapshot, reason, path}) do
     "I couldn't accept the snapshot at \"#{path}\": #{format_file_error(reason)}"
+  end
+
+  def format_error({:cannot_delete_snapshot, reason, path}) do
+    "I couldn't delete the snapshot at \"#{path}\": #{format_file_error(reason)}"
   end
 
   def format_error(:cannot_read_user_input), do: "I couldn't read the user input"

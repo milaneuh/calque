@@ -10,6 +10,7 @@ defmodule Mix.Tasks.Calque do
     mix calque review        # Interactive snapshot review
     mix calque accept-all    # Accept all new snapshots
     mix calque reject-all    # Reject all new snapshots
+    mix calque clean         # Delete pending, rejected, and unreferenced snapshots
     mix calque help          # Show help
   """
 
