@@ -115,7 +115,7 @@ defmodule Calque do
     file = __CALLER__.file
     line = __CALLER__.line
 
-    title = to_string(fun_name)
+    title = strip_test_prefix(to_string(fun_name))
     relative_path = Path.relative_to_cwd(file) |> to_string()
     source = "#{relative_path}:#{line}"
 
@@ -317,6 +317,11 @@ defmodule Calque do
   @spec new_destination(snapshot, Path.t()) :: Path.t()
   defp new_destination(%Snapshot{} = snapshot, folder),
     do: Path.join(folder, safe_basename(snapshot.title) <> ".snap")
+
+  @doc false
+  @spec strip_test_prefix(binary()) :: binary()
+  defp strip_test_prefix("test " <> rest), do: rest
+  defp strip_test_prefix(title), do: title
 
   @doc false
   @spec safe_basename(binary()) :: binary()
