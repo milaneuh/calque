@@ -12,11 +12,8 @@ defmodule Calque.Error do
           | {:cannot_accept_snapshot, term(), Path.t()}
           | {:cannot_delete_snapshot, term(), Path.t()}
           | {:corrupted_snapshot, Path.t()}
-          | :cannot_read_user_input
           | {:cannot_read_user_input, term()}
-          | :aborted
-          | {:cannot_find_project_root, term()}
-          | :snapshot_with_emtpy_title
+          | :snapshot_with_empty_title
 
   @spec explain(Error.t()) :: String.t()
   def explain(reason), do: "❌ " <> color(:red, format_error(reason))
@@ -57,8 +54,6 @@ defmodule Calque.Error do
   def format_error({:cannot_delete_snapshot, reason, path}) do
     "I couldn't delete the snapshot at \"#{path}\": #{format_file_error(reason)}"
   end
-
-  def format_error(:cannot_read_user_input), do: "I couldn't read the user input"
 
   def format_error({:cannot_read_user_input, reason}) do
     "I couldn't read the user input: #{format_file_error(reason)}"

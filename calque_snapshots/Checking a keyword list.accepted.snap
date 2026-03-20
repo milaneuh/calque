@@ -1,0 +1,6 @@
+---
+version: 1.5.1
+title: Checking a keyword list
+source: test/calque_test.exs:43
+---
+[name: "Alice", role: :admin, age: 30]

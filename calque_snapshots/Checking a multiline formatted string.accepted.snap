@@ -1,0 +1,10 @@
+---
+version: 1.5.1
+title: Checking a multiline formatted string
+source: test/calque_test.exs:85
+---
+Name    │ Score │ Grade
+────────┼───────┼──────
+Alice   │    95 │ A
+Bob     │    82 │ B
+Charlie │    74 │ C

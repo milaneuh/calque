@@ -1,0 +1,10 @@
+---
+version: 1.5.1
+title: Checking a nested map
+source: test/calque_test.exs:53
+---
+%{
+  user: %{name: "Bob", email: "bob@example.com"},
+  permissions: [:read, :write],
+  metadata: %{version: 2, created_at: "2024-01-01"}
+}

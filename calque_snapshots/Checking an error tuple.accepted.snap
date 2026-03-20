@@ -1,0 +1,6 @@
+---
+version: 1.5.1
+title: Checking an error tuple
+source: test/calque_test.exs:59
+---
+{:error, {:cannot_connect, :econnrefused, "localhost:5432"}}

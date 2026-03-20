@@ -1,0 +1,6 @@
+---
+version: 1.5.1
+title: Checking unicode content
+source: test/calque_test.exs:74
+---
+Héllo wörld — こんにちは 🌍

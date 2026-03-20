@@ -33,7 +33,7 @@ defmodule Calque do
 
   @type snapshot :: Snapshot.t()
 
-  @version "1.5.1"
+  @version Mix.Project.config()[:version]
   @snapshot_folder "calque_snapshots"
   @snapshot_test_failed_message "Calque snapshot test failed"
   @hint_review_message "Please review this snapshot using #{IO.ANSI.bright()}`mix calque review`#{IO.ANSI.reset()}"
@@ -281,8 +281,10 @@ defmodule Calque do
         {:error, {:cannot_save_new_snapshot, :invalid_destination, snapshot.title, destination}}
 
       String.ends_with?(destination, ".snap") ->
-        with :ok <- ensure_parent_directory(destination),
-             :ok <- File.write(destination, serialise(snapshot)) do
+        with(
+          :ok <- ensure_parent_directory(destination),
+          :ok <- File.write(destination, serialise(snapshot))
+        ) do
           :ok
         else
           {:error, reason} ->
@@ -315,7 +317,7 @@ defmodule Calque do
         {:error, {:cannot_create_snapshots_folder, reason}}
 
       {:ok, %File.Stat{}} ->
-        {:ok, @snapshot_folder}
+        {:error, {:cannot_create_snapshots_folder, :not_a_directory}}
     end
   end
 
@@ -369,12 +371,14 @@ defmodule Calque do
   defp deserialise(raw, status) when status in [:new, :accepted] do
     raw = String.replace(raw, "\r\n", "\n")
 
-    with {:ok, {open_line, rest}} <- split_once(raw),
-         true <- open_line == "---",
-         {:ok, {_version_line, rest}} <- split_once(rest),
-         {:ok, {title_line, rest}} <- split_once(rest),
-         "title: " <> escaped_title <- title_line,
-         {:ok, {source, content}} <- parse_source_and_content(rest) do
+    with(
+      {:ok, {open_line, rest}} <- split_once(raw),
+      true <- open_line == "---",
+      {:ok, {_version_line, rest}} <- split_once(rest),
+      {:ok, {title_line, rest}} <- split_once(rest),
+      "title: " <> escaped_title <- title_line,
+      {:ok, {source, content}} <- parse_source_and_content(rest)
+    ) do
       title = String.replace(escaped_title, "\\n", "\n")
       {:ok, build_snapshot(title, content, status, source)}
     else
@@ -430,9 +434,7 @@ defmodule Calque do
   @doc false
   @spec snapshot_body(binary()) :: binary()
   defp snapshot_body(content) when is_binary(content) do
-    content
-    |> String.replace("\r\n", "\n")
-    |> String.replace(~r/\A---\n(?s:.*?)---\n/u, "")
+    String.replace(content, "\r\n", "\n")
   end
 
   @doc false
@@ -856,8 +858,10 @@ defmodule Calque do
   defp accept_all_snapshots do
     IO.puts("Looking for new snapshots...")
 
-    with {:ok, folder} <- find_snapshots_folder(),
-         {:ok, paths} <- list_new_snapshots(folder) do
+    with(
+      {:ok, folder} <- find_snapshots_folder(),
+      {:ok, paths} <- list_new_snapshots(folder)
+    ) do
       paths |> Enum.each(&accept_snapshot/1)
       IO.puts(IO.ANSI.green() <> "All new snapshots accepted!" <> IO.ANSI.reset())
     else
@@ -871,8 +875,10 @@ defmodule Calque do
   defp reject_all_snapshots do
     IO.puts("Looking for new snapshots...")
 
-    with {:ok, folder} <- find_snapshots_folder(),
-         {:ok, paths} <- list_new_snapshots(folder) do
+    with(
+      {:ok, folder} <- find_snapshots_folder(),
+      {:ok, paths} <- list_new_snapshots(folder)
+    ) do
       paths |> Enum.each(&reject_snapshot/1)
       IO.puts(IO.ANSI.red() <> "All new snapshots rejected!" <> IO.ANSI.reset())
     else
@@ -886,10 +892,12 @@ defmodule Calque do
   defp clean_snapshots do
     IO.puts("Looking for snapshots to clean...")
 
-    with {:ok, folder} <- find_snapshots_folder(),
-         {:ok, pending} <- list_new_snapshots(folder),
-         {:ok, rejected} <- list_rejected_snapshots(folder),
-         {:ok, accepted} <- list_accepted_snapshots(folder) do
+    with(
+      {:ok, folder} <- find_snapshots_folder(),
+      {:ok, pending} <- list_new_snapshots(folder),
+      {:ok, rejected} <- list_rejected_snapshots(folder),
+      {:ok, accepted} <- list_accepted_snapshots(folder)
+    ) do
       unreferenced = Enum.filter(accepted, &unreferenced?/1)
       total = length(pending) + length(rejected) + length(unreferenced)
 
@@ -990,7 +998,7 @@ defmodule Calque do
   @doc false
   @spec title_referenced_anywhere?(String.t()) :: boolean()
   defp title_referenced_anywhere?(title) do
-    files = Path.wildcard("test/**/*.exs")
+    files = Path.wildcard("test/**/*.{exs,ex}")
 
     Enum.any?(files, &title_in_file?(&1, title))
   end
@@ -999,7 +1007,7 @@ defmodule Calque do
   @spec title_in_file?(Path.t(), String.t()) :: boolean()
   defp title_in_file?(file_path, title) do
     case File.read(file_path) do
-      {:ok, content} -> String.contains?(content, title)
+      {:ok, content} -> String.contains?(content, "\"#{title}\"")
       _ -> false
     end
   end
@@ -1213,10 +1221,16 @@ defmodule Calque do
         "I think you misspelled `#{suggestion}` would you like to run it instead ? [Y/n]\n" <>
         IO.ANSI.reset() <> "\n> "
 
-    case IO.gets(msg) |> String.trim() |> String.downcase() do
-      value when value in ["yes", "y"] ->
-        command = Map.get(@command_aliases, suggestion)
-        execute_command({:ok, command})
+    case IO.gets(msg) do
+      data when is_binary(data) ->
+        case data |> String.trim() |> String.downcase() do
+          value when value in ["yes", "y"] ->
+            command = Map.get(@command_aliases, suggestion)
+            execute_command({:ok, command})
+
+          _ ->
+            show_help()
+        end
 
       _ ->
         show_help()
