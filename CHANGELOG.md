@@ -2,6 +2,22 @@
 
 All notable changes to Calque are documented in this file.
 
+## [1.6.0] - 2026-03-20
+
+### Added
+- `mix calque clean` command to clean up snapshot files
+- New test suite covering snapshot, error, and Levenshtein distance modules
+
+### Changed
+- `check/1` no longer prefixes snapshot titles with `test ` — the raw function name is used as-is
+- Improved code structure in core modules
+
+### Fixed
+- Various code quality improvements across `calque.ex`, `error.ex`, and `levenshtein.ex`
+
+### Dependencies
+- Upgraded dependencies
+
 ## [1.5.1] - 2026-01-30
 
 ### Fixed
