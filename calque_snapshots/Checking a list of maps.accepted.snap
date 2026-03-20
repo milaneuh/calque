@@ -4,7 +4,7 @@ title: Checking a list of maps
 source: test/calque_test.exs:69
 ---
 [
-  %{id: 1, label: "first", status: :pending},
-  %{id: 2, label: "second", status: :done},
-  %{id: 3, label: "third", status: :failed}
+  %{"id" => 1, "label" => "first", "status" => :pending},
+  %{"id" => 2, "label" => "second", "status" => :done},
+  %{"id" => 3, "label" => "third", "status" => :failed}
 ]

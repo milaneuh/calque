@@ -3,4 +3,4 @@ version: 1.5.1
 title: This is a snapshot test testing the macro
 source: test/calque_test.exs:26
 ---
-%{title: "This is a snapshot test checking a map"}
+%{"title" => "This is a snapshot test checking a map"}

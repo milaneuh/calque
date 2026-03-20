@@ -21,8 +21,8 @@ defmodule CalqueTest do
   end
 
   test "This is a snapshot test testing the macro" do
-    %{title: "This is a snapshot test checking a map"}
-    |> inspect()
+    %{"title" => "This is a snapshot test checking a map"}
+    |> inspect(sort_keys: true)
     |> Calque.check()
   end
 
@@ -45,11 +45,11 @@ defmodule CalqueTest do
 
   test "Checking a nested map" do
     %{
-      user: %{name: "Bob", email: "bob@example.com"},
-      permissions: [:read, :write],
-      metadata: %{created_at: "2024-01-01", version: 2}
+      "user" => %{"name" => "Bob", "email" => "bob@example.com"},
+      "permissions" => [:read, :write],
+      "metadata" => %{"created_at" => "2024-01-01", "version" => 2}
     }
-    |> inspect(pretty: true)
+    |> inspect(sort_keys: true, pretty: true)
     |> Calque.check()
   end
 
@@ -61,11 +61,11 @@ defmodule CalqueTest do
 
   test "Checking a list of maps" do
     [
-      %{id: 1, status: :pending, label: "first"},
-      %{id: 2, status: :done, label: "second"},
-      %{id: 3, status: :failed, label: "third"}
+      %{"id" => 1, "status" => :pending, "label" => "first"},
+      %{"id" => 2, "status" => :done, "label" => "second"},
+      %{"id" => 3, "status" => :failed, "label" => "third"}
     ]
-    |> inspect(pretty: true)
+    |> inspect(sort_keys: true, pretty: true)
     |> Calque.check()
   end
 
