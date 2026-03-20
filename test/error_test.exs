@@ -21,7 +21,9 @@ defmodule Calque.ErrorTest do
 
     test "{:cannot_read_accepted_snapshot, reason, path}" do
       msg =
-        Error.format_error({:cannot_read_accepted_snapshot, :enoent, "calque_snapshots/foo.accepted.snap"})
+        Error.format_error(
+          {:cannot_read_accepted_snapshot, :enoent, "calque_snapshots/foo.accepted.snap"}
+        )
 
       assert msg =~ "accepted snapshot"
       assert msg =~ "calque_snapshots/foo.accepted.snap"
