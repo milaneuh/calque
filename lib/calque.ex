@@ -184,7 +184,7 @@ defmodule Calque do
       snapshot <- Snapshot.new(title, content, source),
       new_snapshot_path <- new_destination(snapshot, folder),
       accepted_snapshot_path <- to_accepted_path(new_snapshot_path),
-      {:ok, accepted} <- read_accepted(accepted_snapshot_path)
+      {:ok, accepted} <- read_snapshot(accepted_snapshot_path, :accepted)
     ) do
       compare_snapshots(accepted, snapshot, content, new_snapshot_path)
     end
@@ -243,24 +243,6 @@ defmodule Calque do
   # -------------------------
   # FILE OPERATIONS
   # -------------------------
-
-  @doc false
-  @spec read_accepted(Path.t()) :: {:ok, snapshot | nil} | {:error, Error.t()}
-  defp read_accepted(path) do
-    case File.read(path) do
-      {:ok, content} ->
-        case deserialise(content, :accepted) do
-          {:ok, snapshot} -> {:ok, snapshot}
-          {:error, :invalid_snapshot} -> {:error, {:corrupted_snapshot, path}}
-        end
-
-      {:error, :enoent} ->
-        {:ok, nil}
-
-      {:error, reason} ->
-        {:error, {:cannot_read_accepted_snapshot, reason, path}}
-    end
-  end
 
   @doc false
   @spec cleanup_if_present(Path.t()) :: :ok
@@ -368,7 +350,7 @@ defmodule Calque do
   @doc false
   @spec deserialise(binary(), :new | :accepted) ::
           {:ok, snapshot} | {:error, :invalid_snapshot}
-  defp deserialise(raw, status) when status in [:new, :accepted] do
+  defp deserialise(raw, status) do
     raw = String.replace(raw, "\r\n", "\n")
 
     with(
@@ -739,18 +721,14 @@ defmodule Calque do
   @doc false
   @spec review_snapshots() :: :ok
   defp review_snapshots do
-    case find_snapshots_folder() do
-      {:ok, folder} ->
-        case list_new_snapshots(folder) do
-          {:ok, []} ->
-            IO.puts(IO.ANSI.green() <> "No new snapshots to review." <> IO.ANSI.reset())
-
-          {:ok, paths} ->
-            do_review(paths, 1, length(paths))
-
-          {:error, tagged} ->
-            IO.puts(Error.explain(tagged))
-        end
+    with(
+      {:ok, folder} <- find_snapshots_folder(),
+      {:ok, paths} when is_list(paths) and paths not in [nil, []] <- list_new_snapshots(folder)
+    ) do
+      do_review(paths, 1, length(paths))
+    else
+      {:ok, []} ->
+        IO.puts(IO.ANSI.green() <> "No new snapshots to review." <> IO.ANSI.reset())
 
       {:error, reason} ->
         IO.puts(Error.explain(reason))
@@ -767,7 +745,7 @@ defmodule Calque do
     IO.write("\e[H\e[2J")
 
     snapshot_path
-    |> read_snapshot()
+    |> read_snapshot(:new)
     |> handle_review(snapshot_path, rest, current, total)
   end
 
@@ -803,7 +781,7 @@ defmodule Calque do
   @doc false
   @spec review_box(Path.t(), snapshot) :: binary()
   defp review_box(accepted_path, new_snapshot) do
-    case read_accepted_for(new_snapshot, accepted_path) do
+    case read_snapshot(accepted_path, :accepted) do
       {:ok, %Snapshot{} = accepted} ->
         diff_snapshot_box(accepted, new_snapshot, [])
 
@@ -980,16 +958,12 @@ defmodule Calque do
   @doc false
   @spec unreferenced?(Path.t()) :: boolean()
   defp unreferenced?(path) do
-    case File.read(path) do
-      {:ok, raw} ->
-        case deserialise(raw, :accepted) do
-          {:ok, %Snapshot{title: title}} ->
-            not title_referenced_anywhere?(title)
-
-          _ ->
-            false
-        end
-
+    with(
+      {:ok, raw} <- File.read(path),
+      {:ok, %Snapshot{title: title}} <- deserialise(raw, :accepted)
+    ) do
+      not title_referenced_anywhere?(title)
+    else
       _ ->
         false
     end
@@ -1037,40 +1011,22 @@ defmodule Calque do
   end
 
   @doc false
-  @spec read_snapshot(Path.t()) :: {:ok, snapshot} | {:error, Error.t()}
-  defp read_snapshot(path) do
-    case File.read(path) do
-      {:ok, raw} ->
-        case deserialise(raw, :new) do
-          {:ok, snapshot} ->
-            {:ok, snapshot}
-
-          {:error, reason} ->
-            {:error, {:cannot_read_new_snapshot, reason, path}}
-        end
-
-      {:error, reason} ->
-        {:error, {:cannot_read_new_snapshot, reason, path}}
-    end
-  end
-
-  @doc false
-  @spec read_accepted_for(snapshot, Path.t()) ::
-          {:ok, snapshot | nil} | {:error, Error.t()}
-  defp read_accepted_for(_snapshot, path) do
-    case File.read(path) do
-      {:ok, raw} ->
-        case deserialise(raw, :accepted) do
-          {:ok, snap} -> {:ok, snap}
-          {:error, err} -> {:error, {:cannot_read_accepted_snapshot, err, path}}
-        end
-
-      # ➜ This is the normal case on first review for a title: no accepted snapshot yet
+  @spec read_snapshot(Path.t(), :accepted | :new) :: {:ok, snapshot} | {:error, Error.t()}
+  defp read_snapshot(path, status) do
+    with(
+      {:ok, raw} <- File.read(path),
+      {:ok, snapshot} <- deserialise(raw, status)
+    ) do
+      {:ok, snapshot}
+    else
       {:error, :enoent} ->
         {:ok, nil}
 
+      {:error, :invalid_snapshot} ->
+        {:error, {:corrupted_snapshot, path}}
+
       {:error, reason} ->
-        {:error, {:cannot_read_accepted_snapshot, reason, path}}
+        {:error, {:cannot_read_snapshot, reason, path}}
     end
   end
 

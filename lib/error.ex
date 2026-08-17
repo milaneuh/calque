@@ -4,8 +4,6 @@ defmodule Calque.Error do
 
   @type t ::
           {:cannot_create_snapshots_folder, term()}
-          | {:cannot_read_accepted_snapshot, term(), Path.t()}
-          | {:cannot_read_new_snapshot, term(), Path.t()}
           | {:cannot_save_new_snapshot, term(), String.t(), Path.t()}
           | {:cannot_read_snapshots, term(), Path.t()}
           | {:cannot_reject_snapshot, term(), Path.t()}
@@ -29,10 +27,6 @@ defmodule Calque.Error do
 
   def format_error({:cannot_read_accepted_snapshot, reason, source}) do
     "I couldn't read the accepted snapshot from \"#{source}\": #{format_file_error(reason)}"
-  end
-
-  def format_error({:cannot_read_new_snapshot, reason, source}) do
-    "I couldn't read the new snapshot from \"#{source}\": #{format_file_error(reason)}"
   end
 
   def format_error({:cannot_save_new_snapshot, reason, title, destination}) do
