@@ -2,6 +2,14 @@
 
 All notable changes to Calque are documented in this file.
 
+## [1.6.1] - 2026-10-11
+
+### Fixed
+- `Calque.Error.format_error/1` no longer crashes on an unreadable snapshot — the error tag emitted by the unified snapshot reader is now handled
+
+### Changed
+- CI now also builds and tests against Elixir 1.20 (OTP 28)
+
 ## [1.6.0] - 2026-03-20
 
 ### Added
