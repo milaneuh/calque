@@ -19,20 +19,13 @@ defmodule Calque.ErrorTest do
       assert msg =~ "permission denied"
     end
 
-    test "{:cannot_read_accepted_snapshot, reason, path}" do
+    test "{:cannot_read_snapshot, reason, path}" do
       msg =
-        Error.format_error(
-          {:cannot_read_accepted_snapshot, :enoent, "calque_snapshots/foo.accepted.snap"}
-        )
+        Error.format_error({:cannot_read_snapshot, :enoent, "calque_snapshots/foo.accepted.snap"})
 
-      assert msg =~ "accepted snapshot"
+      assert msg =~ "read the snapshot"
       assert msg =~ "calque_snapshots/foo.accepted.snap"
       assert msg =~ "no such file"
-    end
-
-    test "{:cannot_read_new_snapshot, reason, path}" do
-      msg = Error.format_error({:cannot_read_new_snapshot, :enoent, "calque_snapshots/foo.snap"})
-      assert msg =~ "calque_snapshots/foo.snap"
     end
 
     test "{:cannot_save_new_snapshot, reason, title, dest}" do
