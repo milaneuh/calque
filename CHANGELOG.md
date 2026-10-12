@@ -2,6 +2,20 @@
 
 All notable changes to Calque are documented in this file.
 
+## [1.7.0] - 2026-10-11
+
+### Added
+- Test coverage for command suggestions
+
+### Changed
+- Command suggestions now use `String.jaro_distance/2` from the standard library instead of a bundled Levenshtein implementation. The previous fixed edit-distance threshold was length-blind, so unrelated input could be matched to short commands — `ls` no longer suggests `help`, while `accept` now correctly suggests `accept-all`
+
+### Fixed
+- Command suggestions are now ranked by similarity. The candidate list was previously sorted by command name, so the suggestion was not always the closest match
+
+### Removed
+- `Calque.Levenshtein`, superseded by `String.jaro_distance/2`
+
 ## [1.6.1] - 2026-10-11
 
 ### Fixed
