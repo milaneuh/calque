@@ -4,7 +4,7 @@ defmodule Calque.MixProject do
   def project do
     [
       app: :calque,
-      version: "1.6.1",
+      version: "1.7.0",
       elixir: "~> 1.12",
       description: "A simple snapshot testing library inspired by Birdie (Gleam) and Insta (Rust).",
       package: package(),
