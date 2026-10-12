@@ -29,7 +29,7 @@ defmodule Calque do
   ---
   """
 
-  alias Calque.{Diff, Error, Levenshtein, Snapshot}
+  alias Calque.{Diff, Error, Snapshot}
 
   @type snapshot :: Snapshot.t()
 
@@ -1212,22 +1212,19 @@ defmodule Calque do
     "help"
   ]
 
+  # Minimum Jaro similarity for a mistyped argument to be suggested as a command.
+  @suggestion_threshold 0.8
+
   @doc false
   @spec closest_command(String.t()) :: String.t() | nil
   defp closest_command(s) do
-    commands =
-      @commands
-      |> Enum.map(fn c -> {c, Levenshtein.distance(s, c)} end)
-      |> Enum.filter(fn {_, d} -> d <= 3 end)
-      |> Enum.sort(fn x, y -> x <= y end)
-
-    case commands do
-      [] ->
-        nil
-
-      [head | _tail] ->
-        {command, _} = head
-        command
+    @commands
+    |> Enum.map(fn c -> {c, String.jaro_distance(s, c)} end)
+    |> Enum.filter(fn {_, similarity} -> similarity >= @suggestion_threshold end)
+    |> Enum.max_by(fn {_, similarity} -> similarity end, fn -> nil end)
+    |> case do
+      {command, _} -> command
+      nil -> nil
     end
   end
 end
